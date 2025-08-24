@@ -1,0 +1,13 @@
+# Ignore dataset and environment folders
+captcha_dataset/
+.venv-captcha/
+old/
+output/
+.history/
+__pycache__/
+
+# Ignore file types
+*.txt
+*.csv
+*.json
+*.mmd
