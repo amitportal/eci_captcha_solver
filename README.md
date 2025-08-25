@@ -33,6 +33,7 @@ python scripts/data_consolidator.py captcha_dataset
 ### 3. Training
 ```bash
 python scripts/batch_trainer.py --use-gpu --epochs 50
+python main_solver.py --mode train --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv --save-preprocessed --use-gpu force
 ```
 
 ### 4. Testing
@@ -40,7 +41,13 @@ python scripts/batch_trainer.py --use-gpu --epochs 50
 python main_solver.py --mode test --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv
 ```
 
-### 5. Integration
+### 6. Integration
+```bash
+#Run it over whole directory of image files
+python main_solver.py --mode solve --image-path captcha_dataset --use-gpu auto   
+```
+
+### 6. Integration
 ```bash
 # Test single image
 python main_solver.py --mode solve --image-path test_captcha.png

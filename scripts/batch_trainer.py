@@ -592,7 +592,7 @@ def main():
             trainer.config["epochs"] = 5
             trainer.training_config["max_training_samples"] = 200
             logger.info("Quick test mode: 5 epochs, 200 samples")
-        
+
         # Run validation only
         if args.validate_only:
             if trainer.validate_environment():

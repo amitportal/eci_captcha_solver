@@ -1327,7 +1327,7 @@ def main():
     parser.add_argument("--use-gpu", choices=["auto", "force", "disable"], default="auto")
     parser.add_argument("--config-file", help="Configuration file path")
     parser.add_argument("--epochs", type=int, default=50, help="Training epochs")
-    parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
+    parser.add_argument("--batch-size", type=int, default=100, help="Batch size")
     parser.add_argument("--save-preprocessed", action="store_true", help="Save preprocessed images during training")
     parser.add_argument("--output-dir", default="output", help="Output directory for results and preprocessed images")
     
