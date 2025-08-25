@@ -48,18 +48,17 @@ class OptimizedCaptchaConfig:
     """Optimized configuration for ECI CAPTCHAs - Updated for 200x80 images"""
     
     # Character set (prioritized based on frequency analysis)
-    LOWERCASE = string.ascii_lowercase  # 72.7% of dataset
-    DIGITS = string.digits              # 25.9% of dataset  
-    UPPERCASE = string.ascii_uppercase  # 1.3% of dataset
+    LOWERCASE = ''.join([c for c in string.ascii_lowercase if c not in {'i', 'l', 'o'}])  # 72.7% of dataset
+    DIGITS = ''.join([c for c in string.digits if c not in {'1', '0'}])              # 25.9% of dataset
     
     # Optimized character set (frequency-based ordering)
-    CHARACTERS = LOWERCASE + DIGITS + UPPERCASE
+    CHARACTERS = LOWERCASE + DIGITS
     CHAR_TO_NUM = {char: idx for idx, char in enumerate(CHARACTERS)}
     NUM_TO_CHAR = {idx: char for idx, char in enumerate(CHARACTERS)}
     
     # CAPTCHA properties (confirmed from analysis)
     CAPTCHA_LENGTH = 6
-    NUM_CLASSES = len(CHARACTERS)  # 62 classes
+    NUM_CLASSES = len(CHARACTERS)  # 31 classes
     
     # Updated image properties for ECI CAPTCHAs (200x80 actual size)
     IMG_WIDTH = 200   # Actual ECI CAPTCHA width

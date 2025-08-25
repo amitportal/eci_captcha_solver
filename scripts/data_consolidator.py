@@ -16,6 +16,7 @@ import numpy as np
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import functools
+import string
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -53,6 +54,7 @@ def process_file_pair_async(json_file: Path, dataset_dir: Path, consolidator) ->
         # Validate solution
         solution = solution_data.get('solution', '').strip()
         if not consolidator.validate_solution(solution):
+            logger.warning(f"Invalid solution: '{solution}' in file {json_file}")
             return None
         
         # Validate image
@@ -135,22 +137,26 @@ class CaptchaDataConsolidator:
     
     def validate_solution(self, solution: str) -> bool:
         """Validate CAPTCHA solution"""
+        # Character set (prioritized based on frequency analysis)
+        LOWERCASE = ''.join([c for c in string.ascii_lowercase if c not in {'i', 'l', 'o'}])
+        DIGITS = ''.join([c for c in string.digits if c not in {'1', '0'}])
+        CHARACTERS = LOWERCASE + DIGITS  # Allowed characters
+
         if not solution:
             return False
-        
-        # Remove whitespace
+
         solution = solution.strip()
-        
+
         # Check length (should be exactly 6)
         if len(solution) != 6:
             return False
-        
-        # Check if alphanumeric
-        if not solution.replace(' ', '').isalnum():
+
+        # Check if all characters are in allowed set
+        if not all(c in CHARACTERS for c in solution):
             return False
-        
+
         return True
-    
+
     def scan_dataset_files(self) -> List[Dict]:
         """Scan dataset directory and validate files with parallel processing"""
         logger.info("Scanning dataset files with parallel processing...")
