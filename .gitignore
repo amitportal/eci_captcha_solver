@@ -15,3 +15,5 @@ __pycache__/
 *.zip
 *.svg
 *.png
+*.xlsx
+~$*
