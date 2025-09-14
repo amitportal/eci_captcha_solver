@@ -1,11 +1,15 @@
 # Ignore dataset and environment folders
 captcha_dataset/
 .venv-captcha/
+.qwen/
 old/
 logs/
 output/
 .history/
 __pycache__/
+backups/
+diagnostics/
+
 
 # Ignore file types
 *.txt
@@ -18,3 +22,5 @@ __pycache__/
 *.xlsx
 ~$*
 *.ps1
+test_*
+preprocess*
