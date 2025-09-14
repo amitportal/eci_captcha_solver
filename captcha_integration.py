@@ -201,8 +201,19 @@ class ECICaptchaIntegration:
             return None
     
     def _save_to_dataset(self, image_path: str, solution: str):
-        """Save solved CAPTCHA to dataset for continuous learning"""
+        """Save solved CAPTCHA to dataset for continuous learning, only if solution is valid"""
         try:
+            # Validate that solution is exactly 6 characters long
+            if len(solution) != OptimizedCaptchaConfig.CAPTCHA_LENGTH:
+                logger.debug(f"Skipping save to dataset: solution '{solution}' is not {OptimizedCaptchaConfig.CAPTCHA_LENGTH} characters long")
+                return
+                
+            # Validate that solution contains only valid characters
+            valid_chars = set(OptimizedCaptchaConfig.CHARACTERS)
+            if not all(c in valid_chars for c in solution):
+                logger.debug(f"Skipping save to dataset: solution '{solution}' contains invalid characters")
+                return
+            
             dataset_dir = Path(self.config.get("dataset_dir", "captcha_dataset"))
             dataset_dir.mkdir(exist_ok=True)
             

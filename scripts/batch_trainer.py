@@ -230,7 +230,7 @@ class BatchTrainer:
             # Initialize data loader
             data_loader = OptimizedDataLoader(
                 dataset_dir=self.config["dataset_dir"],
-                csv_file=self.config.get("csv_file"),
+                csv_file=self.config.get("csv_file") or "captcha_solutions_consolidated.csv",
                 use_gpu=self.config.get("use_gpu_training", True)
             )
             

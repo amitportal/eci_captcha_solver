@@ -41,17 +41,31 @@ python main_solver.py --mode train --dataset-dir captcha_dataset --csv-file capt
 python main_solver.py --mode test --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv
 ```
 
-### 6. Integration
+### 5. Solving CAPTCHAs
 ```bash
-#Run it over whole directory of image files
-python main_solver.py --mode solve --image-path captcha_dataset --use-gpu auto   
-```
-
-### 6. Integration
-```bash
-# Test single image
+# Solve a single image with default settings
 python main_solver.py --mode solve --image-path test_captcha.png
 
+# Solve a single image with specific preprocessing method and solution method
+python main_solver.py --mode solve --image-path test_captcha.png --preprocessing-method precise_mathematical --solution-method crnn --use-gpu force
+
+# Solve all PNG images in a directory
+python main_solver.py --mode solve --image-path captcha_dataset --use-gpu auto
+
+# Solve with specific confidence threshold
+python main_solver.py --mode solve --image-path test_captcha.png --confidence-threshold 0.90
+```
+
+### Model Performance Notes
+
+- **Segmentation Model**: Generally more reliable for ECI CAPTCHAs with high accuracy (95%+). It's the recommended method for production use.
+- **CRNN Model**: May have issues with confidence scoring, leading to failed solutions even when the model works. This is a known issue being investigated.
+- **Fallback Sequence**: The default mode uses a sequence of methods (segmentation → CRNN → OCR) which provides the best overall reliability.
+
+For best results, use the segmentation method or the default mode which will automatically fall back to segmentation if other methods fail.
+
+### 6. Integration with Other Systems
+```python
 # Integration with Phase 1
 from scripts.captcha_integration import solve_captcha_image
 solution = solve_captcha_image("captcha.png")
