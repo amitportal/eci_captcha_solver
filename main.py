@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-main_solver.py - ECI CAPTCHA Solver Core Implementation
+main.py - ECI CAPTCHA Solver Core Implementation
 Updated for 200x80 images with improved text preservation preprocessing
 """
 
 import os
+import sys
 import json
 import numpy as np
 import cv2
 import pandas as pd
 from pathlib import Path
+# Turn off oneDNN optimizations, use before importing TensorFlow
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import tensorflow as tf
 from tensorflow import keras
 from keras import layers
@@ -28,7 +31,6 @@ from PIL import Image
 import io
 import time
 import gc
-import sys
 import traceback
 
 # Setup logging
@@ -87,7 +89,7 @@ class OptimizedCaptchaConfig:
     
     # Training parameters (optimized for mixed-case patterns)
     BATCH_SIZE = 32
-    EPOCHS = 50       # Reduced due to pattern consistency
+    EPOCHS = 100       # Increased for better accuracy
     LEARNING_RATE = 0.0005  # Lower for better convergence
     
     # Ensemble parameters
@@ -570,6 +572,9 @@ class AdvancedPreprocessor:
             elif self.preprocessing_method == "light_smoothing":
                 # Apply light smoothing (default)
                 image = self.light_smoothing(image)
+            elif self.preprocessing_method == "raw":
+                # Raw preprocessing - just resize and normalize
+                pass  # Image is already resized above
             elif self.preprocessing_method == "grayscale":
                 # Default preprocessing pipeline (original approach)
                 # Step 1: Remove colored lines while preserving green text
@@ -622,7 +627,7 @@ class AdvancedPreprocessor:
                 return processed
             
             # If we used a specific preprocessing method, convert to the expected format
-            if self.preprocessing_method in ["light_smoothing", "precise_mathematical", "grayscale"]:
+            if self.preprocessing_method in ["light_smoothing", "precise_mathematical", "raw", "grayscale"]:
                 # Convert to grayscale
                 if len(image.shape) == 3:
                     processed = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -940,12 +945,11 @@ class OptimizedDataLoader:
             }
         }
 
-class OptimizedCRNN:
-    """Optimized CRNN model for ECI CAPTCHAs with 200x80 input"""
+class SimpleCRNN:
+    """Simplified CRNN model for ECI CAPTCHA solving"""
     
     def __init__(self, use_mixed_precision: bool = False):
         self.model = None
-        self.prediction_model = None
         self.use_mixed_precision = use_mixed_precision
         
         if use_mixed_precision:
@@ -954,132 +958,86 @@ class OptimizedCRNN:
             keras.mixed_precision.set_global_policy(policy)
             logger.info("Mixed precision training enabled")
     
-    def build_optimized_model(self) -> keras.Model:
-        """Build optimized CRNN architecture for 200x80 images with enhanced stability"""
-        logger.info("Building optimized CRNN model...")
+    def build_model(self) -> keras.Model:
+        """Build a simplified CRNN model"""
+        logger.info("Building simplified CRNN model...")
         
-        # Input layer for 200x80 images
+        # Input layer
         input_img = layers.Input(
             shape=(OptimizedCaptchaConfig.IMG_HEIGHT, OptimizedCaptchaConfig.IMG_WIDTH, 1), 
             name='image'
         )
         
-        # Optimized CNN feature extractor for 200x80 input
+        # CNN feature extractor
         x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(input_img)
         x = layers.BatchNormalization()(x)
         x = layers.MaxPooling2D((2, 2))(x)  # 40x100
-        x = layers.Dropout(0.1)(x)
         
         x = layers.Conv2D(64, (3, 3), activation='relu', padding='same')(x)
         x = layers.BatchNormalization()(x)
         x = layers.MaxPooling2D((2, 2))(x)  # 20x50
-        x = layers.Dropout(0.1)(x)
         
         x = layers.Conv2D(128, (3, 3), activation='relu', padding='same')(x)
         x = layers.BatchNormalization()(x)
         x = layers.MaxPooling2D((2, 2))(x)  # 10x25
-        x = layers.Dropout(0.2)(x)
         
         x = layers.Conv2D(256, (3, 3), activation='relu', padding='same')(x)
         x = layers.BatchNormalization()(x)
         x = layers.MaxPooling2D((2, 1))(x)  # 5x25 (preserve width more)
-        x = layers.Dropout(0.2)(x)
         
-        # Reshape for RNN (optimized for 200x80 -> 5x25 feature maps)
+        # Reshape for RNN
         new_shape = (25, 5 * 256)  # 25 time steps, 1280 features
         x = layers.Reshape(target_shape=new_shape)(x)
         x = layers.Dense(256, activation='relu')(x)
         x = layers.Dropout(0.3)(x)
         
-        # Optimized RNN layers with gradient clipping
-        x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=0.2, recurrent_dropout=0.1))(x)
-        x = layers.Bidirectional(layers.GRU(64, return_sequences=True, dropout=0.2, recurrent_dropout=0.1))(x)
+        # RNN layers
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.2))(x)
+        x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.2))(x)
         
-        # Output layer for character sequence - one output per character position
-        # We need 6 outputs (one per character in the CAPTCHA)
-        # Each output should be a probability distribution over the 31 characters
-        # 
-        # The RNN output has shape (batch_size, 25, 128) where 25 is the sequence length
-        # We need to map this to (batch_size, 6, 31) for the 6 characters with 31 classes each
-        # 
-        # Approach: Use a TimeDistributed Dense layer to map the RNN output to the character space,
-        # then use a custom layer to select the appropriate time steps for each character position
+        # Output layer - simpler approach
+        # Process each time step to predict characters
+        x = layers.TimeDistributed(layers.Dense(256, activation='relu'))(x)
+        x = layers.Dropout(0.3)(x)
+        # Now we have 25 time steps, each with 256 features
+        # We need to map this to 6 character predictions
+        # Let's use a simple approach: take the first 6 time steps
+        x = layers.Lambda(lambda x: x[:, :6, :])(x)  # Take first 6 time steps
+        # Map each time step to character classes
+        outputs = layers.TimeDistributed(layers.Dense(OptimizedCaptchaConfig.NUM_CLASSES, activation='softmax'))(x)
         
-        # First, we'll use a Dense layer to project to the right number of classes
-        x = layers.Dense(OptimizedCaptchaConfig.NUM_CLASSES, name='character_projection')(x)  # No activation here, we'll apply it later
-        
-        # Now we need to reduce the sequence length from 25 to 6
-        # We'll split the 25 time steps into 6 groups and take the average of each group
-        # Group sizes: 4, 4, 4, 4, 4, 5 (to account for 25 total steps)
-        group_sizes = [4, 4, 4, 4, 4, 5]
-        char_outputs = []
-        
-        start_idx = 0
-        for i, size in enumerate(group_sizes):
-            # Extract the time steps for this character
-            char_time_steps = layers.Lambda(lambda x: x[:, start_idx:start_idx+size, :])(x)
-            # Average the time steps to get a single prediction per character
-            char_output = layers.GlobalAveragePooling1D()(char_time_steps)
-            # Apply softmax activation
-            char_output = layers.Activation('softmax', name=f'char_{i}')(char_output)
-            # Reshape to add back the character dimension
-            char_output = layers.Reshape((1, OptimizedCaptchaConfig.NUM_CLASSES))(char_output)
-            char_outputs.append(char_output)
-            start_idx += size
-        
-        # Concatenate all character outputs
-        outputs = layers.Concatenate(axis=1)(char_outputs)
-        
-        # Handle mixed precision output
-        if self.use_mixed_precision:
-            outputs = layers.Activation('softmax', dtype='float32', name='predictions')(outputs)
-        
-        model = keras.Model(input_img, outputs, name='OptimizedCRNN_200x80')
-        logger.info(f"CRNN model built successfully with {model.count_params():,} parameters")
+        model = keras.Model(input_img, outputs, name='SimpleCRNN_200x80')
+        logger.info(f"Simple CRNN model built successfully with {model.count_params():,} parameters")
         return model
     
     def compile_model(self, learning_rate: float = None):
-        """Compile model with optimized settings and enhanced stability"""
+        """Compile model with simplified settings"""
         if learning_rate is None:
             learning_rate = OptimizedCaptchaConfig.LEARNING_RATE
         
-        logger.info(f"Compiling CRNN model with learning_rate={learning_rate}")
-        self.model = self.build_optimized_model()
+        logger.info(f"Compiling Simple CRNN model with learning_rate={learning_rate}")
+        self.model = self.build_model()
         
-        # Log model input/output shapes for debugging
+        # Log model shapes
         logger.info(f"Model input shape: {self.model.input_shape}")
         logger.info(f"Model output shape: {self.model.output_shape}")
         
-        # Use Adam optimizer with enhanced gradient clipping and stability settings
+        # Optimizer with gradient clipping
         optimizer = keras.optimizers.Adam(
             learning_rate=learning_rate,
-            clipnorm=1.0,  # Gradient clipping to prevent exploding gradients
-            # clipvalue=0.5,  # Removed to avoid conflict with clipnorm
-            beta_1=0.9,
-            beta_2=0.999,
-            epsilon=1e-7  # Increased epsilon for numerical stability
+            clipnorm=1.0,
+            epsilon=1e-7
         )
         
-        # For mixed precision, loss scaling is handled automatically
-        # Using sparse_categorical_crossentropy for sequence classification
+        # Compile model
         self.model.compile(
             optimizer=optimizer,
             loss='sparse_categorical_crossentropy',
             metrics=['accuracy'],
-            run_eagerly=False  # Use graph execution for better performance
+            run_eagerly=False
         )
         
-        # Log model summary
-        logger.debug("Model summary:")
-        try:
-            model_summary = []
-            self.model.summary(print_fn=lambda x: model_summary.append(x))
-            for line in model_summary:
-                logger.debug(line)
-        except Exception as e:
-            logger.debug(f"Could not print model summary: {e}")
-        
-        # Test model with dummy input to ensure it works
+        # Test model with dummy input
         try:
             dummy_input = np.random.random((1, OptimizedCaptchaConfig.IMG_HEIGHT, OptimizedCaptchaConfig.IMG_WIDTH, 1))
             dummy_output = self.model.predict(dummy_input, verbose=0)
@@ -1092,7 +1050,6 @@ class OptimizedCRNN:
                 logger.error("Model produced invalid predictions during test!")
         except Exception as e:
             logger.error(f"Error testing model: {e}")
-            logger.error(f"Error details: {traceback.format_exc()}")
         
         logger.info(f"Model compiled with {self.model.count_params():,} parameters")
         return self.model
@@ -1311,8 +1268,8 @@ class ProductionCaptchaSolver:
             # Enable unsafe deserialization for Lambda layers
             keras.config.enable_unsafe_deserialization()
             
-            # Load CRNN model if it exists
-            crnn_model_path = self.model_dir / f"optimized_crnn_200x80_{preprocessing_method}.keras"
+            # Load CRNN model if it exists (now using SimpleCRNN)
+            crnn_model_path = self.model_dir / f"simple_crnn_200x80_{preprocessing_method}.keras"
             if crnn_model_path.exists():
                 self.crnn_model = keras.models.load_model(crnn_model_path, safe_mode=False)
                 logger.info(f"✓ CRNN model loaded: {crnn_model_path}")
@@ -1361,7 +1318,7 @@ class ProductionCaptchaSolver:
                         self._save_to_dataset(image_path, result)
                     return result
             
-            # Secondary: CRNN approach
+            # Secondary: CRNN approach (now using SimpleCRNN)
             if self.crnn_model:
                 result = self._solve_with_crnn(image_path, confidence_threshold)
                 if result:
@@ -1477,7 +1434,7 @@ class ProductionCaptchaSolver:
             # Check if CRNN model is loaded
             if self.crnn_model is None:
                 # Try to load the model from disk if available
-                model_path = self.model_dir / f"optimized_crnn_200x80_{self.preprocessing_method}.keras"
+                model_path = self.model_dir / f"simple_crnn_200x80_{self.preprocessing_method}.keras"
                 if model_path.exists():
                     from tensorflow import keras
                     self.crnn_model = keras.models.load_model(model_path)
@@ -1532,6 +1489,80 @@ class ProductionCaptchaSolver:
             
         except Exception as e:
             logger.warning(f"CRNN solving failed: {e}")
+            return None
+    
+    def _solve_with_simple_crnn(self, image_path: str, confidence_threshold: float) -> Optional[str]:
+        """Solve using simple CRNN approach"""
+        try:
+            # Check if simple CRNN model is available
+            if not hasattr(self, 'simple_crnn_model') or self.simple_crnn_model is None:
+                # Try to load the simple CRNN model from disk if available
+                model_path = self.model_dir / f"simple_crnn_200x80_{self.preprocessing_method}.keras"
+                if model_path.exists():
+                    from tensorflow import keras
+                    # Enable unsafe deserialization for Lambda layers
+                    keras.config.enable_unsafe_deserialization()
+                    self.simple_crnn_model = keras.models.load_model(model_path, safe_mode=False)
+                    logger.info(f"Loaded simple CRNN model from {model_path}")
+                else:
+                    # Try to load the default simple CRNN model
+                    model_path = Path("simple_crnn_model.keras")
+                    if model_path.exists():
+                        from tensorflow import keras
+                        # Enable unsafe deserialization for Lambda layers
+                        keras.config.enable_unsafe_deserialization()
+                        self.simple_crnn_model = keras.models.load_model(model_path, safe_mode=False)
+                        logger.info(f"Loaded simple CRNN model from {model_path}")
+                    else:
+                        logger.warning("Simple CRNN model is not available.")
+                        return None
+
+            # Preprocess image
+            processed_img = self.preprocessor.preprocess_image(image_path)
+            input_img = np.expand_dims(processed_img, axis=0)  # Add batch dimension
+
+            # Predict with simple CRNN model
+            predictions = self.simple_crnn_model.predict(input_img, verbose=0)
+            
+            # Decode predictions
+            predicted_chars = []
+            avg_confidence = 0.0
+            
+            # For each character position (6 total)
+            for i in range(OptimizedCaptchaConfig.CAPTCHA_LENGTH):
+                # Get probabilities for this character position
+                char_probs = predictions[0, i, :]
+                # Get the predicted character and its confidence
+                char_idx = np.argmax(char_probs)
+                char_conf = np.max(char_probs)
+                
+                # Check if character is in our vocabulary
+                if char_idx < len(OptimizedCaptchaConfig.NUM_TO_CHAR):
+                    predicted_chars.append(OptimizedCaptchaConfig.NUM_TO_CHAR[char_idx])
+                    avg_confidence += char_conf
+                else:
+                    # Invalid character prediction
+                    logger.debug(f"Simple CRNN predicted invalid character index: {char_idx}")
+                    return None
+            
+            avg_confidence /= OptimizedCaptchaConfig.CAPTCHA_LENGTH
+            result = ''.join(predicted_chars)
+            
+            # Validate that we have exactly 6 characters
+            if len(result) != OptimizedCaptchaConfig.CAPTCHA_LENGTH:
+                logger.debug(f"Simple CRNN produced invalid length solution: {len(result)} characters")
+                return None
+                
+            # Check confidence threshold
+            if avg_confidence >= confidence_threshold:
+                logger.debug(f"Simple CRNN solved: {result} (confidence: {avg_confidence:.3f})")
+                return result
+            else:
+                logger.debug(f"Simple CRNN solution below confidence threshold: {result} ({avg_confidence:.3f})")
+                return None
+            
+        except Exception as e:
+            logger.warning(f"Simple CRNN solving failed: {e}")
             return None
     
     def _solve_with_ocr_fallback(self, image_path: str) -> Optional[str]:
@@ -1685,22 +1716,103 @@ class ProductionCaptchaSolver:
         logger.info(f"DEBUG: Train samples count: {train_samples}")
         logger.debug(f"DEBUG: Full train paths (first 10): {datasets['train'][0][:10]} ... total: {len(datasets['train'][0])}")
         logger.debug(f"DEBUG: Full train labels (first 10): {datasets['train'][1][:10]} ... total: {len(datasets['train'][1])}")
+        
+        logger.info("=" * 60)
+        logger.info("TRAINING PIPELINE STARTING")
+        logger.info("=" * 60)
+        
         logger.info("DEBUG: Entering segmentation training block.")
         self._train_segmentation(datasets)
         logger.info("DEBUG: Segmentation training block exited.")
+        
         if train_samples > 1000:
             logger.info("DEBUG: Entering CRNN training block.")
-            self._train_crnn(datasets)
-            logger.info("DEBUG: CRNN training block exited.")
+            # Train simple CRNN model instead of OptimizedCRNN
+            self._train_simple_crnn(datasets)
+            logger.info("DEBUG: Simple CRNN training block exited.")
         else:
             logger.warning(f"DEBUG: Skipping CRNN training, train_samples={train_samples}")
+            
+        logger.info("=" * 60)
+        logger.info("TRAINING PIPELINE COMPLETED")
+        logger.info("=" * 60)
+        
         logger.info("DEBUG: Entering model saving block.")
         self.save_models(preprocessing_method=self.preprocessor.preprocessing_method)
         logger.info("DEBUG: Model saving block exited.")
         logger.info("Training completed successfully!")
     
+    def _train_simple_crnn(self, datasets: Dict):
+        """Train the simple CRNN model"""
+        try:
+            logger.info("=" * 60)
+            logger.info("STARTING SIMPLE CRNN MODEL TRAINING")
+            logger.info("=" * 60)
+            logger.info("Training simple CRNN model...")
+            
+            # Get datasets
+            train_dataset = datasets['train_dataset']
+            val_dataset = datasets['val_dataset']
+            
+            # Create and compile simple CRNN model
+            simple_crnn = SimpleCRNN()
+            model = simple_crnn.compile_model()
+            
+            # Callbacks
+            callbacks = [
+                keras.callbacks.EarlyStopping(
+                    patience=20,  # Increased from 5 to 20 for better training
+                    restore_best_weights=True,
+                    monitor='val_loss',
+                    mode='min'
+                ),
+                keras.callbacks.ReduceLROnPlateau(
+                    factor=0.5, 
+                    patience=10,  # Increased from 3 to 10
+                    monitor='val_loss',
+                    mode='min',
+                    min_lr=1e-7
+                ),
+                keras.callbacks.ModelCheckpoint(
+                    str(self.model_dir / f"simple_crnn_200x80_{self.preprocessor.preprocessing_method}.keras"),
+                    save_best_only=True
+                )
+            ]
+            
+            # Train model
+            logger.info("Starting simple CRNN training...")
+            history = model.fit(
+                train_dataset,
+                validation_data=val_dataset,
+                epochs=OptimizedCaptchaConfig.EPOCHS,
+                callbacks=callbacks,
+                verbose=1
+            )
+            
+            # Save final model
+            model_path = self.model_dir / f"simple_crnn_200x80_{self.preprocessor.preprocessing_method}.keras"
+            model.save(model_path)
+            logger.info(f"Simple CRNN model saved to {model_path}")
+            
+            # Save detailed training metrics
+            self._save_training_metrics(history.history, "simple_crnn")
+            
+            # Store the model
+            self.simple_crnn_model = model
+            
+            return model, history
+            
+        except Exception as e:
+            logger.error(f"Simple CRNN training failed: {e}")
+            logger.error(f"Error details: {traceback.format_exc()}")
+            self.simple_crnn_model = None
+            return None, None
+    
     def _train_segmentation(self, datasets: Dict):
         try:
+            logger.info("=" * 60)
+            logger.info("STARTING SEGMENTATION MODEL TRAINING")
+            logger.info("=" * 60)
             logger.debug("DEBUG: Segmentation training started.")
             logger.info("Training segmentation model for 200x80 images...")
             char_images = []
@@ -1736,12 +1848,24 @@ class ProductionCaptchaSolver:
                 
                 # Enhanced callbacks with better monitoring
                 callbacks = [
-                    keras.callbacks.EarlyStopping(patience=15, restore_best_weights=True),
-                    keras.callbacks.ReduceLROnPlateau(factor=0.5, patience=7),
+                    keras.callbacks.EarlyStopping(
+                        patience=25,  # Increased from 15 to 25 for better training
+                        restore_best_weights=True,
+                        monitor='val_accuracy',
+                        mode='max'  # Changed to max for accuracy
+                    ),
+                    keras.callbacks.ReduceLROnPlateau(
+                        factor=0.5, 
+                        patience=10,  # Increased from 7 to 10
+                        monitor='val_accuracy',
+                        mode='max',  # Changed to max for accuracy
+                        min_lr=1e-7
+                    ),
                     keras.callbacks.ModelCheckpoint(
-                        str(self.model_dir / "best_segmentation.h5"),
+                        str(self.model_dir / f"best_segmentation_200x80_{self.preprocessor.preprocessing_method}.h5"),
                         save_best_only=True,
-                        monitor='val_accuracy'
+                        monitor='val_accuracy',
+                        mode='max'  # Changed to max for accuracy
                     ),
                     # Custom callback for detailed metrics logging
                     TrainingMetricsLogger()
@@ -1750,7 +1874,7 @@ class ProductionCaptchaSolver:
                 history = self.segmentation_model.fit(
                     char_images, char_labels,
                     batch_size=OptimizedCaptchaConfig.BATCH_SIZE,
-                    epochs=40,
+                    epochs=100,
                     validation_split=0.2,
                     callbacks=callbacks,
                     verbose=1
@@ -1769,11 +1893,14 @@ class ProductionCaptchaSolver:
     
     def _train_crnn(self, datasets: Dict):
         try:
+            logger.info("=" * 60)
+            logger.info("STARTING CRNN MODEL TRAINING")
+            logger.info("=" * 60)
             logger.debug("DEBUG: CRNN training started.")
             logger.info("Training CRNN model with enhanced debugging...")
             
-            # Create CRNN model with additional debugging
-            crnn = OptimizedCRNN()
+            # Create CRNN model with additional debugging (now using SimpleCRNN)
+            crnn = SimpleCRNN()
             self.crnn_model = crnn.compile_model()
             
             # Get datasets
@@ -1793,20 +1920,20 @@ class ProductionCaptchaSolver:
             # Enhanced callbacks with better monitoring
             callbacks = [
                 keras.callbacks.EarlyStopping(
-                    patience=10, 
+                    patience=20,  # Increased from 10 to 20 for better training
                     restore_best_weights=True,
                     monitor='val_loss',
                     mode='min'
                 ),
                 keras.callbacks.ReduceLROnPlateau(
                     factor=0.5, 
-                    patience=5,
+                    patience=10,  # Increased from 5 to 10
                     monitor='val_loss',
                     mode='min',
                     min_lr=1e-7
                 ),
                 keras.callbacks.ModelCheckpoint(
-                    str(self.model_dir / "best_crnn.keras"),
+                    str(self.model_dir / f"best_crnn_200x80_{self.preprocessor.preprocessing_method}.keras"),
                     save_best_only=True,
                     monitor='val_loss',
                     mode='min'
@@ -1887,7 +2014,7 @@ class ProductionCaptchaSolver:
             logger.debug("DEBUG: Model saving started.")
             suffix = f"_{preprocessing_method}" if preprocessing_method else ""
             if self.crnn_model:
-                model_path = self.model_dir / f"optimized_crnn_200x80{suffix}.keras"
+                model_path = self.model_dir / f"simple_crnn_200x80{suffix}.keras"
                 self.crnn_model.save(model_path)
                 logger.info(f"✓ CRNN model saved: {model_path}")
             else:
@@ -1915,6 +2042,7 @@ class ProductionCaptchaSolver:
             # Prepare metrics data
             metrics_data = {
                 "model_type": model_type,
+                "preprocessing_method": self.preprocessor.preprocessing_method,
                 "timestamp": datetime.now().isoformat(),
                 "epochs": len(history.get("loss", [])),
                 "final_metrics": {},
@@ -1941,7 +2069,7 @@ class ProductionCaptchaSolver:
             
             # Save to JSON
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            json_file = metrics_dir / f"{model_type}_training_metrics_{timestamp}.json"
+            json_file = metrics_dir / f"{model_type}_training_metrics_{self.preprocessor.preprocessing_method}_{timestamp}.json"
             with open(json_file, 'w') as f:
                 json.dump(metrics_data, f, indent=2)
             logger.info(f"Training metrics saved to: {json_file}")
@@ -1960,7 +2088,7 @@ class ProductionCaptchaSolver:
                     csv_data[key] = values
                     
             df = pd.DataFrame(csv_data)
-            csv_file = metrics_dir / f"{model_type}_training_metrics_{timestamp}.csv"
+            csv_file = metrics_dir / f"{model_type}_training_metrics_{self.preprocessor.preprocessing_method}_{timestamp}.csv"
             df.to_csv(csv_file, index=False)
             logger.info(f"Training metrics CSV saved to: {csv_file}")
             
@@ -2258,8 +2386,8 @@ def main():
     """Main execution function for 200x80 CAPTCHA solver"""
     parser = argparse.ArgumentParser(description="ECI CAPTCHA Solver for 200x80 Images")
     parser.add_argument("--dataset-dir", help="CAPTCHA dataset directory (required for train/test modes)")
-    parser.add_argument("--csv-file", help="Consolidated CSV file path")
-    parser.add_argument("--mode", choices=["train", "test", "solve", "debug-data", "test-preprocessing", "test-model-loading"], default="train")
+    parser.add_argument("--csv-file", help="Consolidated CSV file path", default="captcha_solutions_consolidated.csv")
+    parser.add_argument("--mode", choices=["train", "test", "solve", "debug-data", "test-preprocessing", "test-model-loading"], default="solve")
     parser.add_argument("--model-dir", default="models", help="Model directory")
     parser.add_argument("--image-path", help="Single image path or directory containing PNG files (for solve mode)")
     parser.add_argument("--confidence-threshold", type=float, default=0.80)
@@ -2269,9 +2397,9 @@ def main():
     parser.add_argument("--batch-size", type=int, default=100, help="Batch size")
     parser.add_argument("--save-preprocessed", action="store_true", help="Save preprocessed images during training")
     parser.add_argument("--output-dir", default="output", help="Output directory for results and preprocessed images")
-    parser.add_argument("--preprocessing-method", choices=["grayscale", "light_smoothing", "precise_mathematical"], 
-                        default="light_smoothing", help="Preprocessing method to use")
-    parser.add_argument("--solution-method", choices=["segment", "crnn", "ocr"], help="Force solution method: segment, crnn, or ocr")
+    parser.add_argument("--preprocessing-method", choices=["grayscale", "light_smoothing", "precise_mathematical", "raw"], 
+                        default="raw", help="Preprocessing method to use")
+    parser.add_argument("--solution-method", choices=["segment", "crnn", "ocr"], default="crnn", help="Force solution method: segment, crnn, or ocr")
     
     args = parser.parse_args()
     
@@ -2477,12 +2605,12 @@ def main():
                 method_used = "ocr"
             else:
                 # Default fallback sequence
-                if solver.segmentation_model:
-                    solution = solver._solve_with_segmentation(str(img_path), confidence_threshold)
-                    method_used = "segment" if solution else None
-                if not solution and solver.crnn_model:
+                if solver.crnn_model:
                     solution = solver._solve_with_crnn(str(img_path), confidence_threshold)
-                    method_used = "crnn" if solution else method_used
+                    method_used = "crnn" if solution else None
+                if not solution and solver.segmentation_model:
+                    solution = solver._solve_with_segmentation(str(img_path), confidence_threshold)
+                    method_used = "segment" if solution else method_used
                 if not solution and solver.fallback_api_key:
                     solution = solver._solve_with_api(str(img_path))
                     method_used = "api" if solution else method_used
