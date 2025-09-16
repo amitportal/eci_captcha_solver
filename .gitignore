@@ -9,6 +9,7 @@ output/
 __pycache__/
 backups/
 diagnostics/
+other_captchas/
 
 
 # Ignore file types
@@ -24,3 +25,7 @@ diagnostics/
 *.ps1
 test_*
 preprocess*
+
+
+# particular_files
+simple_crnn_200x80_grayscale.keras

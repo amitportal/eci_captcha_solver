@@ -4,40 +4,48 @@ This updated version of the CAPTCHA solver supports training and using separate 
 
 ## Features
 
-1. **Three Preprocessing Methods:**
+1. **Four Preprocessing Methods:**
    - `grayscale`: Basic preprocessing that converts images to grayscale
    - `light_smoothing`: Applies light smoothing to reduce noise while preserving edges
    - `precise_mathematical`: Uses precise mathematical approach for line removal
+   - `raw`: Raw preprocessing that only resizes and normalizes images
 
 2. **Separate Model Training:**
    - Each preprocessing method can have its own trained model
    - Models are saved with method-specific suffixes
+   - All CRNN models now use the simpler, more stable SimpleCRNN architecture
 
 3. **Automatic Model Selection:**
    - During solving, the appropriate model is automatically loaded based on the selected preprocessing method
    - Fallback to base models if method-specific models are not found
 
+4. **Multiple Model Types:**
+   - CRNN models (using SimpleCRNN architecture)
+   - Segmentation models
+   - Each model type can be trained with each preprocessing method
+
 ## Usage
 
 ### Training All Models
 
-To train models with all three preprocessing methods:
+To train models with all preprocessing methods:
 
 ```bash
 python train_all_models.py <dataset_dir> [csv_file]
 ```
 
-This will create three sets of models in the `models/` directory:
-- `optimized_crnn_200x80_grayscale.keras` and `optimized_segmentation_200x80_grayscale.keras`
-- `optimized_crnn_200x80_light_smoothing.keras` and `optimized_segmentation_200x80_light_smoothing.keras`
-- `optimized_crnn_200x80_precise_mathematical.keras` and `optimized_segmentation_200x80_precise_mathematical.keras`
+This will create model sets in the `models/` directory for each preprocessing method:
+- `simple_crnn_200x80_grayscale.keras` and `optimized_segmentation_200x80_grayscale.keras`
+- `simple_crnn_200x80_light_smoothing.keras` and `optimized_segmentation_200x80_light_smoothing.keras`
+- `simple_crnn_200x80_precise_mathematical.keras` and `optimized_segmentation_200x80_precise_mathematical.keras`
+- `simple_crnn_200x80_raw.keras` and `optimized_segmentation_200x80_raw.keras`
 
 ### Training Individual Models
 
 To train a model with a specific preprocessing method:
 
 ```bash
-python main_solver.py --mode train --dataset-dir <dataset_dir> --preprocessing-method <method>
+python main.py --mode train --dataset-dir <dataset_dir> --preprocessing-method <method>
 ```
 
 ### Solving with Specific Preprocessing
@@ -45,14 +53,21 @@ python main_solver.py --mode train --dataset-dir <dataset_dir> --preprocessing-m
 To solve CAPTCHAs using a specific preprocessing method and its corresponding model:
 
 ```bash
-python main_solver.py --mode solve --image-path <image_path> --preprocessing-method <method>
+python main.py --mode solve --image-path <image_path> --preprocessing-method <method>
+```
+
+To solve with a specific model type:
+
+```bash
+python main.py --mode solve --image-path <image_path> --solution-method crnn
 ```
 
 The solver will automatically load the model that was trained with the same preprocessing method.
 
 ## Default Behavior
 
-- Default preprocessing method for solving: `light_smoothing`
+- Default preprocessing method for solving: `raw`
+- Default solution method: Automatic fallback sequence
 - If a model specific to the preprocessing method is not found, the system will fallback to the base model (without suffix)
 
 ## Model Compatibility
@@ -101,7 +116,7 @@ The system maintains backward compatibility with existing models. If you have pr
 
   Solve with Specific Preprocessing:
 
-   1 python main_solver.py --mode solve --image-path <image_path>
+   1 python main.py --mode solve --image-path <image_path>
      --preprocessing-method <method>
 
   Default Behavior:
@@ -110,5 +125,4 @@ The system maintains backward compatibility with existing models. If you have pr
    - Fallback to base models when needed
 
   The system now supports training and using separate models optimized for each
-  preprocessing method, which should improve overall accuracy by matching the right model
-  to the right preprocessing approach.
+  preprocessing method, which should improve overall accuracy by matching the right model to the right preprocessing approach.

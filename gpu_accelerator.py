@@ -33,7 +33,7 @@ class GPUAccelerator:
                 self.backend = "pytorch"
                 self.torch_available = True
                 gpu_name = torch.cuda.get_device_name(0)
-                logger.info(f"✓ GPU acceleration enabled via PyTorch CUDA")
+                logger.info("GPU acceleration enabled via PyTorch CUDA")
                 logger.info(f"  Device: {gpu_name}")
                 logger.info(f"  CUDA version: {torch.version.cuda}")
                 return
@@ -47,7 +47,7 @@ class GPUAccelerator:
             if gpus:
                 self.backend = "tensorflow"
                 self.tf_gpu_available = True
-                logger.info(f"✓ GPU acceleration enabled via TensorFlow")
+                logger.info("GPU acceleration enabled via TensorFlow")
                 logger.info(f"  GPUs detected: {len(gpus)}")
                 return
         except ImportError:
@@ -56,8 +56,8 @@ class GPUAccelerator:
         # Fallback to CPU
         self.device = "cpu"
         self.backend = "cpu"
-        logger.warning("⚠ No GPU acceleration available - using CPU")
-        logger.info("💡 For GPU acceleration, ensure CUDA drivers are installed")
+        logger.warning("No GPU acceleration available - using CPU")
+        logger.info("For GPU acceleration, ensure CUDA drivers are installed")
     
     def get_device_info(self) -> dict:
         """Get information about the current acceleration device"""
@@ -253,19 +253,19 @@ def print_gpu_status():
     accelerator = get_accelerator()
     info = accelerator.get_device_info()
     
-    print("\n🚀 GPU Acceleration Status:")
+    print("\nGPU Acceleration Status:")
     print(f"  Backend: {info['backend']}")
     print(f"  Device: {info['device']}")
     
     if info['torch_available']:
-        print(f"  ✓ PyTorch CUDA: {info['gpu_count']} GPU(s)")
+        print(f"  PyTorch CUDA: {info['gpu_count']} GPU(s)")
         if info['gpu_name']:
             print(f"    GPU: {info['gpu_name']}")
         print(f"    CUDA: {info['cuda_version']}")
     elif info['tf_gpu_available']:
-        print(f"  ✓ TensorFlow GPU support available")
+        print(f"  TensorFlow GPU support available")
     else:
-        print(f"  ⚠ CPU-only mode")
+        print(f"  CPU-only mode")
         print(f"    Install CUDA drivers for GPU acceleration")
 
 if __name__ == "__main__":
@@ -288,4 +288,4 @@ if __name__ == "__main__":
     normalized = ops.normalize_batch(test_image)
     print(f"Normalized range: [{normalized.min():.3f}, {normalized.max():.3f}]")
     
-    print("\n✓ GPU acceleration ready for use!")
+    print("\nGPU acceleration ready for use!")

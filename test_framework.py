@@ -387,7 +387,7 @@ class CaptchaTestFramework:
         
         try:
             # Import preprocessor
-            from main_solver import AdvancedPreprocessor, OptimizedCaptchaConfig
+            from main import AdvancedPreprocessor, OptimizedCaptchaConfig
             
             # Test both CPU and GPU preprocessing if available
             for use_gpu in [True, False]:
@@ -486,7 +486,7 @@ class CaptchaTestFramework:
         
         try:
             # Test solver import
-            from main_solver import ProductionCaptchaSolver, OptimizedCaptchaConfig
+            from main import ProductionCaptchaSolver, OptimizedCaptchaConfig
             
             test_result["details"]["solver_import"] = True
             
@@ -561,7 +561,7 @@ class CaptchaTestFramework:
             try:
                 # Test import
                 sys.path.append(str(self.base_dir / "scripts"))
-                from captcha_integration import ECICaptchaIntegration, solve_captcha_image, get_solver
+                from old.captcha_integration import ECICaptchaIntegration, solve_captcha_image, get_solver
                 
                 test_result["details"]["integration_import"] = True
                 
@@ -640,7 +640,7 @@ class CaptchaTestFramework:
             png_files = list(dataset_dir.glob("*.png"))
             
             if len(png_files) >= 5:
-                from main_solver import ProductionCaptchaSolver
+                from main import ProductionCaptchaSolver
                 
                 solver = ProductionCaptchaSolver(str(self.base_dir / "models"))
                 
@@ -691,7 +691,7 @@ class CaptchaTestFramework:
                 
                 # Test GPU memory if available
                 try:
-                    from main_solver import get_gpu_memory_info
+                    from main import get_gpu_memory_info
                     gpu_memory = get_gpu_memory_info()
                     if gpu_memory and gpu_memory.get('total', 0) > 0:
                         test_result["details"]["gpu_memory"] = gpu_memory
@@ -886,7 +886,7 @@ class CaptchaUnitTests(unittest.TestCase):
         """Test character encoding/decoding"""
         try:
             sys.path.append(str(self.base_dir))
-            from main_solver import OptimizedCaptchaConfig
+            from main import OptimizedCaptchaConfig
             
             # Test all characters can be encoded and decoded
             for i, char in enumerate(OptimizedCaptchaConfig.CHARACTERS):
@@ -906,7 +906,7 @@ class CaptchaUnitTests(unittest.TestCase):
         """Test image preprocessing with dummy data"""
         try:
             sys.path.append(str(self.base_dir))
-            from main_solver import AdvancedPreprocessor, OptimizedCaptchaConfig
+            from main import AdvancedPreprocessor, OptimizedCaptchaConfig
             
             preprocessor = AdvancedPreprocessor()
             

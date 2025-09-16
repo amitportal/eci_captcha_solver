@@ -291,7 +291,7 @@ class CaptchaDataConsolidator:
         
         return analysis
     
-    def create_consolidated_files(self, output_dir: Optional[str] = None):
+    def create_consolidated_files(self, output_dir: Optional[str] = None, csv_filename: str = "captcha_solutions_consolidated.csv"):
         """Create consolidated JSON and CSV files"""
         if output_dir is None:
             output_dir_path = self.dataset_dir.parent
@@ -312,15 +312,26 @@ class CaptchaDataConsolidator:
         logger.info("Analyzing dataset quality...")
         quality_analysis = self.analyze_dataset_quality(consolidated_data)
         
+        # Create file paths based on CSV filename
+        csv_path = Path(csv_filename)
+        # Ensure CSV filename has .csv extension
+        if csv_path.suffix != '.csv':
+            csv_filename = str(csv_path) + '.csv'
+        else:
+            csv_filename = str(csv_path)
+            
+        # Create JSON filename based on CSV filename
+        json_filename = csv_path.with_suffix('.json')
+        json_output = output_dir_path / json_filename
+        
         # Save consolidated JSON
-        json_output = output_dir_path / "captcha_solutions_consolidated.json"
         with open(json_output, 'w', encoding='utf-8') as f:
             json.dump(consolidated_data, f, indent=2, ensure_ascii=False)
         
         logger.info(f"✓ Saved consolidated JSON: {json_output}")
         
         # Save consolidated CSV
-        csv_output = output_dir_path / "captcha_solutions_consolidated.csv"
+        csv_output = output_dir_path / csv_filename
         df = pd.DataFrame(consolidated_data)
         df.to_csv(csv_output, index=False, encoding='utf-8')
         
@@ -395,6 +406,7 @@ def main():
     parser.add_argument("--output-dir", help="Output directory (default: parent of dataset dir)")
     parser.add_argument("--validate-only", action="store_true", help="Only validate files without creating outputs")
     parser.add_argument("--min-samples", type=int, default=100, help="Minimum required samples")
+    parser.add_argument("--csv-filename", default="captcha_solutions_consolidated.csv", help="CSV output filename (default: captcha_solutions_consolidated.csv)")
     
     args = parser.parse_args()
     
@@ -415,7 +427,7 @@ def main():
                 return 1
         else:
             # Create consolidated files
-            json_file, csv_file, analysis_file = consolidator.create_consolidated_files(args.output_dir)
+            json_file, csv_file, analysis_file = consolidator.create_consolidated_files(args.output_dir, args.csv_filename)
             
             if json_file and csv_file:
                 print(f"\n🎉 Consolidation completed successfully!")
@@ -423,7 +435,6 @@ def main():
                 print(f"  JSON: {json_file}")
                 print(f"  CSV: {csv_file}")
                 print(f"  Analysis: {analysis_file}")
-                print(f"\n🚀 Next step: python scripts/batch_trainer.py")
                 return 0
             else:
                 print("❌ Consolidation failed!")

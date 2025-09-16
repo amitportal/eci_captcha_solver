@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to train models with all three preprocessing methods
+Script to train SimpleCRNN models with all preprocessing methods
 """
 
 import sys
@@ -11,8 +11,8 @@ import os
 from pathlib import Path
 
 def train_model(preprocessing_method, dataset_dir, model_dir="models", csv_file=None):
-    """Train a model with the specified preprocessing method"""
-    print(f"Training model with {preprocessing_method} preprocessing...")
+    """Train a SimpleCRNN model with the specified preprocessing method"""
+    print(f"Training SimpleCRNN model with {preprocessing_method} preprocessing...")
 
     # Always use .venv-captcha environment for training
     venv_python = os.path.join(".venv-captcha", "Scripts", "python.exe") if os.name == "nt" else os.path.join(".venv-captcha", "bin", "python")
@@ -21,7 +21,7 @@ def train_model(preprocessing_method, dataset_dir, model_dir="models", csv_file=
         return False
 
     cmd = [
-        venv_python, "main_solver.py",
+        venv_python, "main.py",
         "--mode", "train",
         "--dataset-dir", dataset_dir,
         "--model-dir", model_dir,
@@ -59,7 +59,7 @@ def main():
     csv_file = sys.argv[2] if len(sys.argv) > 2 else None
     
     # Preprocessing methods
-    methods = ["grayscale", "light_smoothing", "precise_mathematical"]
+    methods = ["grayscale", "light_smoothing", "precise_mathematical", "raw"]
     
     # Train models for each preprocessing method
     for method in methods:
@@ -68,7 +68,7 @@ def main():
             print(f"Failed to train model with {method}")
             continue
     
-    print("All models trained successfully!")
+    print("All SimpleCRNN models trained successfully!")
 
 if __name__ == "__main__":
     main()

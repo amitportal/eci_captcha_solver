@@ -366,13 +366,13 @@ except Exception as e:
    python -c "import tensorflow as tf; print('TF version:', tf.__version__)"
 
 3. Run the main solver:
-   python main_solver.py --mode test --dataset-dir captcha_dataset
+   python main.py --mode test --dataset-dir captcha_dataset
 
 4. Train models (if you have training data):
-   python main_solver.py --mode train --dataset-dir captcha_dataset --epochs 10
+   python main.py --mode train --dataset-dir captcha_dataset --epochs 10
 
 5. Solve a single captcha:
-   python main_solver.py --mode solve --image-path path/to/captcha.png
+   python main.py --mode solve --image-path path/to/captcha.png
 
 📋 What's installed:
    ✓ Python 3.11 virtual environment (.venv-captcha)

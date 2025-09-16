@@ -12,7 +12,8 @@ eci_captcha_solver/
 ├── scripts/            # Utility scripts
 ├── logs/               # Training logs
 ├── output/             # Test results
-├── main_solver.py      # Core solver
+├── main.py             # Core trainer, Data manager, Fallback Solver
+├── captcha_solver.py   # Fast independent CAPTCHA solver (minimal preprocessing)
 ├── setup_environment.py # Environment setup
 └── test_framework.py   # Testing suite
 ```
@@ -32,43 +33,78 @@ python scripts/data_consolidator.py captcha_dataset
 
 ### 3. Training
 ```bash
-python scripts/batch_trainer.py --use-gpu --epochs 50
-python main_solver.py --mode train --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv --save-preprocessed --use-gpu force
+python main.py --mode train --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv --save-preprocessed --use-gpu force
 ```
 
-### 4. Testing
+### 4. Training All Models with Different Preprocessing Methods
 ```bash
-python main_solver.py --mode test --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv
+python train_all_models.py captcha_dataset captcha_solutions_consolidated.csv
 ```
 
-### 5. Solving CAPTCHAs
+### 5. Testing
+```bash
+python main.py --mode test --dataset-dir captcha_dataset --csv-file captcha_solutions_consolidated.csv
+```
+
+### 6. Solving CAPTCHAs
 ```bash
 # Solve a single image with default settings
-python main_solver.py --mode solve --image-path test_captcha.png
+python main.py --mode solve --image-path test_captcha.png
 
 # Solve a single image with specific preprocessing method and solution method
-python main_solver.py --mode solve --image-path test_captcha.png --preprocessing-method precise_mathematical --solution-method crnn --use-gpu force
+python main.py --mode solve --image-path test_captcha.png --preprocessing-method precise_mathematical --solution-method crnn --use-gpu force
+
+# Solve with raw preprocessing
+python main.py --mode solve --image-path test_captcha.png --preprocessing-method raw
 
 # Solve all PNG images in a directory
-python main_solver.py --mode solve --image-path captcha_dataset --use-gpu auto
+python main.py --mode solve --image-path captcha_dataset --use-gpu auto
 
 # Solve with specific confidence threshold
-python main_solver.py --mode solve --image-path test_captcha.png --confidence-threshold 0.90
+python main.py --mode solve --image-path test_captcha.png --confidence-threshold 0.90
+
+# Fast CAPTCHA solving with minimal preprocessing (optimized for speed)
+python captcha_solver.py test_captcha.png
+
+# Fast CAPTCHA solving multiple images in one execution (batch processing)
+python captcha_solver.py test_captcha_3.png test_captcha_4.png
+
+# Fast CAPTCHA solving all PNG files in current directory
+python captcha_solver.py *.png
 ```
+
+### Fast CAPTCHA Solver (captcha_solver.py)
+The `captcha_solver.py` script is an optimized, independent solver designed for maximum speed, using CNRR Raw model:
+- **Minimal preprocessing**: Only converts to grayscale and normalizes (no image resizing or complex operations)
+- **GPU acceleration**: Automatically uses PyTorch CUDA when available for faster model loading
+- **Model caching**: Caches the model in memory during execution for faster subsequent solves
+- **Batch processing**: Can solve multiple images in a single execution for improved performance
+- **Clean output**: Prints only the solution to stdout, with detailed timing in log file
+- **Performance**: ~0.7 seconds total solve time (0.2s model load + 0.5s prediction) with GPU for first image, much faster for subsequent images in batch
 
 ### Model Performance Notes
 
-- **Segmentation Model**: Generally more reliable for ECI CAPTCHAs with high accuracy (95%+). It's the recommended method for production use.
-- **CRNN Model**: May have issues with confidence scoring, leading to failed solutions even when the model works. This is a known issue being investigated.
-- **Fallback Sequence**: The default mode uses a sequence of methods (segmentation → CRNN → OCR) which provides the best overall reliability.
+- **CRNN Model**: Very fast and accurate models, except grayscale model. Other three models solve captchas with above 99.9% accuracy, in ~0.7 seconds, when used once, and under ~0.07 seconds when used in batch, using cached preloaded model. It's the recommended method for production use.
+- **Segmentation Model**: Less reliable for ECI CAPTCHAs with accuracy (85%+). 
+- **Fallback Sequence**: The default mode uses a sequence of methods (CRNN → segmentation → OCR) which provides the best overall reliability.
+- **Fast Solver**: The `captcha_solver.py` script provides the fastest solving time for simple use cases where maximum accuracy is not critical.
 
 For best results, use the segmentation method or the default mode which will automatically fall back to segmentation if other methods fail.
 
-### 6. Integration with Other Systems
+### 7. Integration with Other Systems
 ```python
 # Integration with Phase 1
-from scripts.captcha_integration import solve_captcha_image
-solution = solve_captcha_image("captcha.png")
+from eci_captcha_solver.captcha_solver import solve_captcha
+
+# For a single image:
+solution = solve_captcha("test_captcha_2.png")
+print(f"Single image solution: {solution}")
+
+# For multiple images (batch processing):
+image_list = ["test_captcha_3.png", "test_captcha_2.png"]
+solutions = [solve_captcha(img_path) for img_path in image_list]
+for img, sol in zip(image_list, solutions):
+	print(f"{img}: {sol}")
 ```
 
 ## 🔧 Configuration
@@ -80,8 +116,8 @@ Edit `config/captcha_config.json` for:
 - Training parameters
 
 ## 📊 Expected Performance
-- **Accuracy**: 90-95% on ECI CAPTCHAs
-- **Speed**: 50-100ms per CAPTCHA
+- **Accuracy**: 99% on ECI CAPTCHAs
+- **Speed**: 50-100ms per CAPTCHA (fast solver), 1-2 seconds (full solver)
 - **Memory**: ~500MB loaded models
 - **Hardware**: RTX 500 Ada optimized
 
@@ -92,9 +128,27 @@ Replace AntiCaptcha calls:
 # OLD
 solution = anticaptcha_api.solve(image_path)
 
-# NEW  
-from scripts.captcha_integration import solve_captcha_image
-solution = solve_captcha_image(image_path)
+# NEW (Recommended: use command line interface)
+# Solve a single image:
+python captcha_solver.py test_captcha_2.png
+
+# Solve multiple images (batch processing):
+python captcha_solver.py test_captcha_1.png test_captcha_2.png
+
+# If you need to call from Python, you can import solve_captcha from captcha_solver.py:
+
+from captcha_solver import solve_captcha
+
+# For a single image:
+solution = solve_captcha("test_captcha_2.png")
+print(f"Single image solution: {solution}")
+
+# For multiple images (batch processing):
+image_list = ["test_captcha_3.png", "test_captcha_2.png"]
+solutions = [solve_captcha(img_path) for img_path in image_list]
+for img, sol in zip(image_list, solutions):
+	print(f"{img}: {sol}")
+# Note: This only works if captcha_solver.py is in your PYTHONPATH and all dependencies are installed.
 ```
 
 ## 🧪 Testing
@@ -109,6 +163,11 @@ python test_framework.py --test-type all --save-results
 - GPU acceleration
 - Continuous learning
 - Production monitoring
+- Multiple preprocessing methods (grayscale, light_smoothing, precise_mathematical, raw)
+- Unified CRNN model architecture (SimpleCRNN)
+- Segmentation models
+- Fast independent solver (`captcha_solver.py`)
+- Batch processing capabilities
 
 ## 🛠️ Hardware Requirements
 - **Minimum**: 8GB RAM, any GPU
