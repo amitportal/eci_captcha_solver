@@ -1,0 +1,10 @@
+# Render.com deployment configuration
+services:
+  - type: web
+    name: eci-captcha-solver
+    env: python
+    buildCommand: "pip install -r api_requirements.txt"
+    startCommand: "python captcha_api.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

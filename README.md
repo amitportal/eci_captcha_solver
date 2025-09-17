@@ -115,6 +115,39 @@ Edit `config/captcha_config.json` for:
 - GPU usage settings
 - Training parameters
 
+## 🌐 API Service
+
+This CAPTCHA solver is also available as a web API service for easy integration:
+
+- **API Implementation**: `captcha_api.py` (FastAPI)
+- **Documentation**: See `API_README.md` for detailed information
+- **Endpoints**: `/solve`, `/health`, `/stats`
+- **Deployment**: Multiple **completely free** options available (see `API_DEPLOYMENT.md`)
+- **Free Deployment Summary**: See `FREE_DEPLOYMENT_SUMMARY.md` for a complete overview of all free options
+
+### API Files
+- `captcha_api.py` - Main API implementation
+- `api_requirements.txt` - API dependencies
+- `API_README.md` - API documentation
+- `API_PLAN.md` - Implementation plan
+- `test_api.py` - Testing script
+- `.github/workflows/deploy-api.yml` - GitHub Actions deployment
+- `render.yaml` - Render.com deployment configuration
+- `API_DEPLOYMENT.md` - Deployment instructions
+- `CLIENT_IMPLEMENTATION.md` - Client-side usage examples
+- `FREE_DEPLOYMENT_SUMMARY.md` - Complete summary of free deployment options
+
+### Deployment Options
+1. **GitHub Actions with Self-Hosted Runner** - Optimal performance, free
+2. **Render.com** - Cloud deployment, free tier available
+3. **Railway.app** - Alternative cloud platform, free tier
+4. **Fly.io** - Another cloud option, free tier
+
+### Client-Side Integration
+See `CLIENT_IMPLEMENTATION.md` for detailed examples in:
+- JavaScript (with fallback strategy)
+- Python (with fallback strategy)
+
 ## 📊 Expected Performance
 - **Accuracy**: 99% on ECI CAPTCHAs
 - **Speed**: 50-100ms per CAPTCHA (fast solver), 1-2 seconds (full solver)

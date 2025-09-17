@@ -1,7 +1,6 @@
 # Ignore dataset and environment folders
 captcha_dataset/
 .venv-captcha/
-.qwen/
 old/
 logs/
 output/
@@ -25,7 +24,6 @@ other_captchas/
 *.ps1
 test_*
 preprocess*
-
 
 # particular_files
 simple_crnn_200x80_grayscale.keras

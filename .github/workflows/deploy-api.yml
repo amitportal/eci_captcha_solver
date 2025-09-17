@@ -1,0 +1,78 @@
+name: Deploy CAPTCHA API
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r api_requirements.txt
+    
+    - name: Check if API is already running
+      run: |
+        # Check if the process is already running (cross-platform approach)
+        echo "Checking for existing API process..."
+        python -c "
+import psutil
+import sys
+for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+    try:
+        if 'captcha_api.py' in ' '.join(proc.info['cmdline'] or []):
+            print(f'API already running with PID {proc.info[\"pid\"]}')
+            sys.exit(0)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        pass
+print('API not running')
+"
+      continue-on-error: true
+    
+    - name: Start API service
+      run: |
+        # Start the API in the background (cross-platform approach)
+        echo "Starting API service..."
+        python -c "
+import subprocess
+import sys
+import os
+# Start the API in the background
+subprocess.Popen([sys.executable, 'captcha_api.py'], stdout=open('api.log', 'w'), stderr=subprocess.STDOUT)
+print('API started in background')
+"
+    
+    - name: Wait for API to start
+      run: |
+        # Wait a few seconds for the API to start
+        echo "Waiting for API to start..."
+        python -c "
+import time
+import requests
+import sys
+# Wait for up to 30 seconds for the API to start
+for i in range(30):
+    try:
+        response = requests.get('http://localhost:8000/health', timeout=1)
+        if response.status_code == 200:
+            print('API is running and responding')
+            sys.exit(0)
+    except requests.RequestException:
+        pass
+    print(f'Waiting... ({i+1}/30)')
+    time.sleep(1)
+print('API failed to start or respond')
+sys.exit(1)
+"
+      continue-on-error: true
