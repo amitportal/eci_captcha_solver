@@ -12,13 +12,13 @@ other_captchas/
 
 
 # Ignore file types
-*.txt
+# *.txt
 *.csv
 *.json
 *.log
 *.zip
 *.svg
-*.png
+# *.png
 *.xlsx
 ~$*
 *.ps1
